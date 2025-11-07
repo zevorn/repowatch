@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GitHub 信息订阅平台</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <!-- 头部导航 -->
+    <header class="header">
+        <div class="container">
+            <div class="logo">
+                <i class="fas fa-shield-alt"></i>
+                <h1>PepoWatch 安全监控平台</h1>
+            </div>
+            <nav class="nav">
+                <button class="nav-btn active" data-tab="dashboard">
+                    <i class="fas fa-th-large"></i> 仪表板
+                </button>
+                <button class="nav-btn" data-tab="github">
+                    <i class="fab fa-github"></i> GitHub订阅
+                </button>
+                <button class="nav-btn" data-tab="cve">
+                    <i class="fas fa-bug"></i> CVE漏洞
+                </button>
+                <button class="nav-btn" data-tab="settings">
+                    <i class="fas fa-cog"></i> 设置
+                </button>
+            </nav>
+            <div class="header-actions">
+                <button class="btn-refresh" id="refreshBtn">
+                    <i class="fas fa-sync-alt"></i> 刷新
+                </button>
+                <div class="auto-refresh">
+                    <label>
+                        <input type="checkbox" id="autoRefresh">
+                        <span>自动刷新</span>
+                    </label>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="main-content">
+        <div class="container">
+            <!-- 仪表板标签页 -->
+            <div class="tab-content active" id="dashboard">
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon github">
+                            <i class="fab fa-github"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h3 id="statsRepoCount">0</h3>
+                            <p>订阅仓库</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon updates">
+                            <i class="fas fa-code-branch"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h3 id="statsUpdateCount">0</h3>
+                            <p>今日更新</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon cve">
+                            <i class="fas fa-bug"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h3 id="statsCveCount">0</h3>
+                            <p>新增CVE</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon critical">
+                            <i class="fas fa-exclamation-triangle"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h3 id="statsCriticalCount">0</h3>
+                            <p>高危漏洞</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="dashboard-grid">
+                    <!-- 最新GitHub更新 -->
+                    <div class="panel">
+                        <div class="panel-header">
+                            <h2><i class="fab fa-github"></i> 最新GitHub更新</h2>
+                            <button class="btn-small" onclick="switchTab('github')">查看全部</button>
+                        </div>
+                        <div class="panel-content" id="dashboardGithubUpdates">
+                            <div class="loading">加载中...</div>
+                        </div>
+                    </div>
+
+                    <!-- 最新CVE漏洞 -->
+                    <div class="panel">
+                        <div class="panel-header">
+                            <h2><i class="fas fa-bug"></i> 最新CVE漏洞</h2>
+                            <button class="btn-small" onclick="switchTab('cve')">查看全部</button>
+                        </div>
+                        <div class="panel-content" id="dashboardCveList">
+                            <div class="loading">加载中...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- GitHub订阅标签页 -->
+            <div class="tab-content" id="github">
+                <div class="panel">
+                    <div class="panel-header">
+                        <h2><i class="fab fa-github"></i> GitHub仓库订阅</h2>
+                        <button class="btn-primary" id="addRepoBtn">
+                            <i class="fas fa-plus"></i> 添加仓库
+                        </button>
+                    </div>
+                    
+                    <!-- 添加仓库表单 -->
+                    <div class="add-repo-form hidden" id="addRepoForm">
+                        <div class="form-group">
+                            <input type="text" id="repoInput" placeholder="输入仓库地址，例如：owner/repo" class="form-input">
+                            <div class="form-actions">
+                                <button class="btn-primary" id="submitRepoBtn">
+                                    <i class="fas fa-check"></i> 订阅
+                                </button>
+                                <button class="btn-secondary" id="cancelRepoBtn">
+                                    <i class="fas fa-times"></i> 取消
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 搜索和过滤 -->
+                    <div class="filters">
+                        <div class="search-box">
+                            <i class="fas fa-search"></i>
+                            <input type="text" id="githubSearch" placeholder="搜索仓库...">
+                        </div>
+                    </div>
+
+                    <div class="panel-content" id="repoList">
+                        <div class="loading">加载中...</div>
+                    </div>
+                </div>
+
+                <!-- 仓库更新流 -->
+                <div class="panel">
+                    <div class="panel-header">
+                        <h2><i class="fas fa-stream"></i> 更新流</h2>
+                    </div>
+                    <div class="panel-content" id="repoUpdates">
+                        <div class="loading">加载中...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- CVE漏洞标签页 -->
+            <div class="tab-content" id="cve">
+                <div class="panel">
+                    <div class="panel-header">
+                        <h2><i class="fas fa-bug"></i> CVE漏洞数据库</h2>
+                    </div>
+
+                    <!-- CVE过滤器 -->
+                    <div class="filters">
+                        <div class="search-box">
+                            <i class="fas fa-search"></i>
+                            <input type="text" id="cveSearch" placeholder="搜索CVE编号、描述...">
+                        </div>
+                        <div class="filter-buttons">
+                            <button class="filter-btn active" data-severity="all">
+                                <i class="fas fa-list"></i> 全部
+                            </button>
+                            <button class="filter-btn" data-severity="critical">
+                                <i class="fas fa-exclamation-circle"></i> 严重
+                            </button>
+                            <button class="filter-btn" data-severity="high">
+                                <i class="fas fa-exclamation-triangle"></i> 高危
+                            </button>
+                            <button class="filter-btn" data-severity="medium">
+                                <i class="fas fa-info-circle"></i> 中危
+                            </button>
+                            <button class="filter-btn" data-severity="low">
+                                <i class="fas fa-check-circle"></i> 低危
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="panel-content" id="cveList">
+                        <div class="loading">加载中...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 设置标签页 -->
+            <div class="tab-content" id="settings">
+                <div class="panel">
+                    <div class="panel-header">
+                        <h2><i class="fas fa-cog"></i> 系统设置</h2>
+                    </div>
+                    <div class="panel-content settings-content">
+                        <div class="setting-item">
+                            <div class="setting-info">
+                                <h3>自动刷新间隔</h3>
+                                <p>设置数据自动刷新的时间间隔</p>
+                            </div>
+                            <select id="refreshInterval" class="form-select">
+                                <option value="30000">30秒</option>
+                                <option value="60000" selected>1分钟</option>
+                                <option value="300000">5分钟</option>
+                                <option value="600000">10分钟</option>
+                            </select>
+                        </div>
+
+                        <div class="setting-item">
+                            <div class="setting-info">
+                                <h3>AI总结语言</h3>
+                                <p>选择AI总结使用的语言</p>
+                            </div>
+                            <select id="aiLanguage" class="form-select">
+                                <option value="zh-CN" selected>简体中文</option>
+                                <option value="en">English</option>
+                            </select>
+                        </div>
+
+                        <div class="setting-item">
+                            <div class="setting-info">
+                                <h3>通知设置</h3>
+                                <p>启用桌面通知功能（新CVE漏洞、重要更新）</p>
+                            </div>
+                            <label class="switch">
+                                <input type="checkbox" id="notificationEnabled">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+
+                        <div class="setting-item">
+                            <div class="setting-info">
+                                <h3>数据管理</h3>
+                                <p>清除本地存储的订阅数据</p>
+                            </div>
+                            <button class="btn-danger" id="clearDataBtn">
+                                <i class="fas fa-trash"></i> 清除数据
+                            </button>
+                        </div>
+
+                        <div class="setting-item">
+                            <div class="setting-info">
+                                <h3>关于</h3>
+                                <p>PepoWatch v1.0.0 - GitHub 信息订阅平台</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Toast通知 -->
+    <div class="toast" id="toast">
+        <i class="fas fa-check-circle"></i>
+        <span id="toastMessage">操作成功</span>
+    </div>
+
+    <script src="js/app.js"></script>
+</body>
+</html>
