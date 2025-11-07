@@ -4,11 +4,13 @@ const AppState = {
     repos: [],
     updates: [],
     cves: [],
+    issues: {},
     settings: {
         refreshInterval: 60000,
         aiLanguage: 'zh-CN',
         notificationEnabled: false,
-        autoRefresh: false
+        autoRefresh: false,
+        githubToken: ''
     },
     filters: {
         github: '',
@@ -23,17 +25,21 @@ const Storage = {
     save() {
         localStorage.setItem('PepoWatch_repos', JSON.stringify(AppState.repos));
         localStorage.setItem('PepoWatch_settings', JSON.stringify(AppState.settings));
+        localStorage.setItem('PepoWatch_issues', JSON.stringify(AppState.issues));
     },
     load() {
         const repos = localStorage.getItem('PepoWatch_repos');
         const settings = localStorage.getItem('PepoWatch_settings');
+        const issues = localStorage.getItem('PepoWatch_issues');
         
         if (repos) AppState.repos = JSON.parse(repos);
         if (settings) AppState.settings = { ...AppState.settings, ...JSON.parse(settings) };
+        if (issues) AppState.issues = JSON.parse(issues);
     },
     clear() {
         localStorage.removeItem('PepoWatch_repos');
         localStorage.removeItem('PepoWatch_settings');
+        localStorage.removeItem('PepoWatch_issues');
     }
 };
 
@@ -219,6 +225,165 @@ const DataGenerator = {
     }
 };
 
+// GitHub API 集成
+const GitHubAPI = {
+    baseURL: 'https://api.github.com',
+    
+    // 获取请求头
+    getHeaders() {
+        const headers = {
+            'Accept': 'application/vnd.github.v3+json'
+        };
+        
+        if (AppState.settings.githubToken) {
+            headers['Authorization'] = `token ${AppState.settings.githubToken}`;
+        }
+        
+        return headers;
+    },
+    
+    // 获取仓库信息
+    async fetchRepoInfo(owner, repo) {
+        try {
+            const response = await fetch(`${this.baseURL}/repos/${owner}/${repo}`, {
+                headers: this.getHeaders()
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+            
+            const data = await response.json();
+            return {
+                id: data.id,
+                owner: data.owner.login,
+                name: data.name,
+                fullName: data.full_name,
+                description: data.description || '无描述',
+                stars: data.stargazers_count,
+                forks: data.forks_count,
+                language: data.language || 'Unknown',
+                lastUpdate: data.updated_at,
+                url: data.html_url,
+                openIssues: data.open_issues_count,
+                homepage: data.homepage
+            };
+        } catch (error) {
+            console.error(`Error fetching repo ${owner}/${repo}:`, error);
+            return null;
+        }
+    },
+    
+    // 获取仓库 Issues
+    async fetchRepoIssues(owner, repo, state = 'open', perPage = 10) {
+        try {
+            const response = await fetch(
+                `${this.baseURL}/repos/${owner}/${repo}/issues?state=${state}&per_page=${perPage}&sort=created&direction=desc`,
+                { headers: this.getHeaders() }
+            );
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+            
+            const data = await response.json();
+            return data.filter(issue => !issue.pull_request).map(issue => ({
+                id: issue.id,
+                number: issue.number,
+                title: issue.title,
+                state: issue.state,
+                labels: issue.labels.map(l => ({ name: l.name, color: l.color })),
+                user: issue.user.login,
+                created_at: issue.created_at,
+                updated_at: issue.updated_at,
+                comments: issue.comments,
+                body: issue.body || '',
+                html_url: issue.html_url
+            }));
+        } catch (error) {
+            console.error(`Error fetching issues for ${owner}/${repo}:`, error);
+            return [];
+        }
+    },
+    
+    // 获取最新提交
+    async fetchRecentCommits(owner, repo, perPage = 5) {
+        try {
+            const response = await fetch(
+                `${this.baseURL}/repos/${owner}/${repo}/commits?per_page=${perPage}`,
+                { headers: this.getHeaders() }
+            );
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+            
+            const data = await response.json();
+            return data.map(commit => ({
+                sha: commit.sha,
+                message: commit.commit.message,
+                author: commit.commit.author.name,
+                date: commit.commit.author.date,
+                url: commit.html_url
+            }));
+        } catch (error) {
+            console.error(`Error fetching commits for ${owner}/${repo}:`, error);
+            return [];
+        }
+    },
+    
+    // 获取最新发布
+    async fetchLatestRelease(owner, repo) {
+        try {
+            const response = await fetch(
+                `${this.baseURL}/repos/${owner}/${repo}/releases/latest`,
+                { headers: this.getHeaders() }
+            );
+            
+            if (!response.ok) {
+                if (response.status === 404) return null;
+                throw new Error(`HTTP ${response.status}`);
+            }
+            
+            const data = await response.json();
+            return {
+                tag: data.tag_name,
+                name: data.name || data.tag_name,
+                author: data.author.login,
+                published_at: data.published_at,
+                body: data.body || '',
+                url: data.html_url
+            };
+        } catch (error) {
+            console.error(`Error fetching latest release for ${owner}/${repo}:`, error);
+            return null;
+        }
+    },
+    
+    // 检查 API 速率限制
+    async checkRateLimit() {
+        try {
+            const response = await fetch(`${this.baseURL}/rate_limit`, {
+                headers: this.getHeaders()
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+            
+            const data = await response.json();
+            return {
+                limit: data.rate.limit,
+                remaining: data.rate.remaining,
+                reset: new Date(data.rate.reset * 1000)
+            };
+        } catch (error) {
+            console.error('Error checking rate limit:', error);
+            return null;
+        }
+    }
+};
+
 // 时间格式化
 const TimeUtils = {
     formatTimeAgo(dateString) {
@@ -268,7 +433,11 @@ const Renderer = {
             return;
         }
 
-        container.innerHTML = filteredRepos.map(repo => `
+        container.innerHTML = filteredRepos.map(repo => {
+            const repoIssues = AppState.issues[repo.fullName] || [];
+            const openIssues = repo.openIssues || 0;
+            
+            return `
             <div class="repo-card">
                 <div class="repo-header">
                     <div class="repo-title">
@@ -278,6 +447,9 @@ const Renderer = {
                     <div class="repo-actions">
                         <button class="btn-icon" onclick="App.refreshRepo('${repo.fullName}')" title="刷新">
                             <i class="fas fa-sync-alt"></i>
+                        </button>
+                        <button class="btn-icon" onclick="App.toggleIssues('${repo.fullName}')" title="查看Issues">
+                            <i class="fas fa-exclamation-circle"></i>
                         </button>
                         <button class="btn-icon delete" onclick="App.deleteRepo('${repo.fullName}')" title="删除">
                             <i class="fas fa-trash"></i>
@@ -289,7 +461,55 @@ const Renderer = {
                     <span><i class="fas fa-star"></i> ${repo.stars.toLocaleString()}</span>
                     <span><i class="fas fa-code-branch"></i> ${repo.forks.toLocaleString()}</span>
                     <span><i class="fas fa-circle"></i> ${repo.language}</span>
+                    <span><i class="fas fa-exclamation-circle"></i> ${openIssues} Issues</span>
                     <span><i class="fas fa-clock"></i> ${TimeUtils.formatTimeAgo(repo.lastUpdate)}</span>
+                </div>
+                <div class="repo-issues" id="issues-${repo.fullName.replace('/', '-')}" style="display: none;">
+                    <div class="issues-header">
+                        <h4><i class="fas fa-list"></i> Open Issues (${openIssues})</h4>
+                        <button class="btn-small" onclick="App.loadIssues('${repo.fullName}')">
+                            <i class="fas fa-sync-alt"></i> 刷新Issues
+                        </button>
+                    </div>
+                    <div class="issues-list" id="issues-list-${repo.fullName.replace('/', '-')}">
+                        ${repoIssues.length > 0 ? this.renderIssuesList(repoIssues) : '<div class="loading">加载中...</div>'}
+                    </div>
+                </div>
+            </div>
+        `;
+        }).join('');
+    },
+    
+    // 渲染 Issues 列表
+    renderIssuesList(issues) {
+        if (issues.length === 0) {
+            return '<div class="empty-state"><p>暂无 open issues</p></div>';
+        }
+        
+        return issues.map(issue => `
+            <div class="issue-item">
+                <div class="issue-header">
+                    <div class="issue-title" onclick="window.open('${issue.html_url}', '_blank')">
+                        <i class="fas fa-dot-circle ${issue.state === 'open' ? 'issue-open' : 'issue-closed'}"></i>
+                        #${issue.number} ${issue.title}
+                    </div>
+                    <div class="issue-meta">
+                        <span class="issue-comments">
+                            <i class="fas fa-comment"></i> ${issue.comments}
+                        </span>
+                    </div>
+                </div>
+                ${issue.labels.length > 0 ? `
+                    <div class="issue-labels">
+                        ${issue.labels.map(label => `
+                            <span class="issue-label" style="background-color: #${label.color};">
+                                ${label.name}
+                            </span>
+                        `).join('')}
+                    </div>
+                ` : ''}
+                <div class="issue-footer">
+                    <span>由 ${issue.user} 创建于 ${TimeUtils.formatTimeAgo(issue.created_at)}</span>
                 </div>
             </div>
         `).join('');
@@ -516,12 +736,29 @@ const App = {
                 this.requestNotificationPermission();
             }
         });
+        
+        document.getElementById('githubToken').addEventListener('input', (e) => {
+            AppState.settings.githubToken = e.target.value.trim();
+            Storage.save();
+        });
+        
+        document.getElementById('testGitHubAPI').addEventListener('click', async () => {
+            Toast.show('正在测试 GitHub API...', 'success');
+            const rateLimit = await GitHubAPI.checkRateLimit();
+            
+            if (rateLimit) {
+                Toast.show(`API 可用！剩余请求: ${rateLimit.remaining}/${rateLimit.limit}`, 'success');
+            } else {
+                Toast.show('API 测试失败，请检查 Token', 'error');
+            }
+        });
 
         document.getElementById('clearDataBtn').addEventListener('click', () => {
             if (confirm('确定要清除所有本地数据吗？此操作不可撤销。')) {
                 Storage.clear();
                 AppState.repos = [];
                 AppState.updates = [];
+                AppState.issues = {};
                 this.refreshUI();
                 Toast.show('数据已清除', 'success');
             }
@@ -580,7 +817,7 @@ const App = {
         Renderer.renderCVEList('dashboardCveList', 5);
     },
 
-    addRepo() {
+    async addRepo() {
         const input = document.getElementById('repoInput');
         const repoName = input.value.trim();
 
@@ -601,8 +838,22 @@ const App = {
             return;
         }
 
-        // 添加仓库
-        const newRepo = DataGenerator.generateRepoData(repoName);
+        // 尝试从 GitHub API 获取真实数据
+        const [owner, repo] = repoName.split('/');
+        Toast.show('正在获取仓库信息...', 'success');
+        
+        let newRepo = await GitHubAPI.fetchRepoInfo(owner, repo);
+        
+        if (!newRepo) {
+            // 如果API失败，使用模拟数据
+            Toast.show('无法连接到 GitHub API，使用模拟数据', 'error');
+            newRepo = DataGenerator.generateRepoData(repoName);
+        } else {
+            Toast.show('成功获取仓库信息', 'success');
+            // 同时获取 issues
+            this.loadIssues(repoName);
+        }
+        
         AppState.repos.push(newRepo);
         Storage.save();
 
@@ -632,29 +883,102 @@ const App = {
         Toast.show(`已取消订阅 ${fullName}`, 'success');
     },
 
-    refreshRepo(fullName) {
+    async refreshRepo(fullName) {
         Toast.show(`正在刷新 ${fullName}...`, 'success');
-        // 在实际应用中，这里会调用真实的 GitHub API
-        setTimeout(() => {
+        const [owner, repo] = fullName.split('/');
+        
+        // 获取最新仓库信息
+        const updatedRepo = await GitHubAPI.fetchRepoInfo(owner, repo);
+        
+        if (updatedRepo) {
+            // 更新仓库数据
+            const index = AppState.repos.findIndex(r => r.fullName === fullName);
+            if (index !== -1) {
+                AppState.repos[index] = updatedRepo;
+            }
+            
+            // 刷新 issues
+            await this.loadIssues(fullName);
+            
+            Storage.save();
+            this.refreshUI();
             Toast.show(`${fullName} 已更新`, 'success');
-        }, 1000);
+        } else {
+            Toast.show(`无法刷新 ${fullName}`, 'error');
+        }
+    },
+    
+    // 加载仓库的 Issues
+    async loadIssues(fullName) {
+        const [owner, repo] = fullName.split('/');
+        const issues = await GitHubAPI.fetchRepoIssues(owner, repo);
+        
+        if (issues && issues.length >= 0) {
+            AppState.issues[fullName] = issues;
+            Storage.save();
+            
+            // 更新显示
+            const issuesListEl = document.getElementById(`issues-list-${fullName.replace('/', '-')}`);
+            if (issuesListEl) {
+                issuesListEl.innerHTML = Renderer.renderIssuesList(issues);
+            }
+        }
+    },
+    
+    // 切换 Issues 显示
+    toggleIssues(fullName) {
+        const issuesEl = document.getElementById(`issues-${fullName.replace('/', '-')}`);
+        if (issuesEl) {
+            const isHidden = issuesEl.style.display === 'none';
+            issuesEl.style.display = isHidden ? 'block' : 'none';
+            
+            // 如果是首次打开且没有数据，则加载
+            if (isHidden && (!AppState.issues[fullName] || AppState.issues[fullName].length === 0)) {
+                this.loadIssues(fullName);
+            }
+        }
     },
 
-    refreshData() {
+    async refreshData() {
         const btn = document.getElementById('refreshBtn');
         btn.classList.add('spinning');
 
         Toast.show('正在刷新数据...', 'success');
 
-        setTimeout(() => {
-            // 重新生成数据
+        try {
+            // 刷新所有仓库的数据
+            const refreshPromises = AppState.repos.map(async (repo) => {
+                const [owner, name] = repo.fullName.split('/');
+                const updatedRepo = await GitHubAPI.fetchRepoInfo(owner, name);
+                
+                if (updatedRepo) {
+                    return updatedRepo;
+                }
+                return repo;
+            });
+            
+            const updatedRepos = await Promise.all(refreshPromises);
+            AppState.repos = updatedRepos;
+            
+            // 刷新 issues（仅前5个仓库，避免API限制）
+            const issuesPromises = AppState.repos.slice(0, 5).map(async (repo) => {
+                await this.loadIssues(repo.fullName);
+            });
+            await Promise.all(issuesPromises);
+            
+            // 重新生成模拟数据
             AppState.updates = DataGenerator.generateRepoUpdates(AppState.repos);
             AppState.cves = DataGenerator.generateCVEData();
 
+            Storage.save();
             this.refreshUI();
             btn.classList.remove('spinning');
             Toast.show('数据已更新', 'success');
-        }, 1500);
+        } catch (error) {
+            console.error('Error refreshing data:', error);
+            btn.classList.remove('spinning');
+            Toast.show('刷新失败，请稍后重试', 'error');
+        }
     },
 
     toggleAutoRefresh() {
@@ -676,6 +1000,7 @@ const App = {
         document.getElementById('aiLanguage').value = AppState.settings.aiLanguage;
         document.getElementById('notificationEnabled').checked = AppState.settings.notificationEnabled;
         document.getElementById('autoRefresh').checked = AppState.settings.autoRefresh;
+        document.getElementById('githubToken').value = AppState.settings.githubToken || '';
 
         if (AppState.settings.autoRefresh) {
             this.toggleAutoRefresh();
