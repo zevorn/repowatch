@@ -243,6 +243,19 @@
 
                         <div class="setting-item">
                             <div class="setting-info">
+                                <h3>GitHub API Token</h3>
+                                <p>配置 GitHub Personal Access Token 以获取真实数据（可选）</p>
+                            </div>
+                            <div style="display: flex; gap: 0.5rem; flex: 1; max-width: 500px;">
+                                <input type="password" id="githubToken" class="form-input" placeholder="ghp_xxxxxxxxxxxx" style="flex: 1;">
+                                <button class="btn-primary" id="testGitHubAPI">
+                                    <i class="fas fa-vial"></i> 测试
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="setting-item">
+                            <div class="setting-info">
                                 <h3>数据管理</h3>
                                 <p>清除本地存储的订阅数据</p>
                             </div>
@@ -254,7 +267,10 @@
                         <div class="setting-item">
                             <div class="setting-info">
                                 <h3>关于</h3>
-                                <p>PepoWatch v1.0.0 - GitHub 信息订阅平台</p>
+                                <p>PepoWatch v2.0.0 - GitHub 信息订阅平台</p>
+                                <p style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.5rem;">
+                                    ✨ 新增功能：GitHub API 集成、Issues 展示、动态刷新
+                                </p>
                             </div>
                         </div>
                     </div>

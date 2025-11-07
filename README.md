@@ -4,16 +4,20 @@
 
 ## 🚀 项目简介
 
-PepoWatch 是一个专业的仓库信息聚合平台，帮助开发者和安全研究人员实时监控关注的 GitHub 仓库动态和最新的 CVE 安全漏洞信息。通过 AI 智能分析，快速了解安全风险和重要更新。
+PepoWatch 是一个专业的仓库信息聚合平台，帮助开发者和安全研究人员实时监控关注的 GitHub 仓库动态和最新的 CVE 安全漏洞信息。通过 AI 智能分析和 GitHub API 集成，实时获取仓库 Issues、提交记录和发布信息，快速了解安全风险和重要更新。
 
 ## ✨ 核心功能
 
 ### 1. GitHub仓库订阅模块
 - ✅ 支持添加/删除订阅的GitHub仓库（格式：owner/repo）
+- ✅ **真实 GitHub API 集成**，获取实时仓库数据
+- ✅ **实时显示仓库 Issues**，包括标签、评论数、创建者等详细信息
 - ✅ 实时显示仓库的最新提交、发布版本、Issue和Pull Request
-- ✅ 展示仓库统计信息（Star数、Fork数、编程语言等）
+- ✅ 展示仓库统计信息（Star数、Fork数、编程语言、Open Issues数等）
+- ✅ **单个仓库动态刷新**功能，一键更新仓库信息
 - ✅ 仓库搜索和过滤功能
 - ✅ 订阅数据本地持久化存储
+- ✅ **可选配置 GitHub Personal Access Token** 以提高 API 限额
 
 ### 2. CVE漏洞信息模块
 - ✅ 展示最新的 CVE 漏洞列表
@@ -37,10 +41,12 @@ PepoWatch 是一个专业的仓库信息聚合平台，帮助开发者和安全�
 
 ### 5. 高级功能
 - ✅ 自动刷新机制（可自定义间隔：30 秒、1 分钟、5 分钟、10分钟）
-- ✅ 手动刷新功能
+- ✅ **全局和单仓库手动刷新**功能
+- ✅ **GitHub API 速率限制检测**
 - ✅ 桌面通知支持（新 CVE 漏洞、重要更新）
-- ✅ 数据本地存储（订阅列表、用户设置）
+- ✅ 数据本地存储（订阅列表、Issues 数据、用户设置）
 - ✅ 暗色主题界面（适合开发者长时间使用）
+- ✅ **GitHub Actions 自动部署到 GitHub Pages**
 
 ## 📋 已完成功能列表
 
@@ -181,11 +187,22 @@ PepoWatch 是一个专业的仓库信息聚合平台，帮助开发者和安全�
 - **手机** - 640px - 967px (小屏幕)
 - **小屏手机** - < 640px (超小屏幕)
 
+## 🎉 新增功能（v2.0）
+
+### ✨ 已实现的增强功能
+- ✅ **真实 GitHub API 集成** - 实时获取仓库信息、Issues、提交记录
+- ✅ **Issues 展示功能** - 完整显示仓库的 open issues，包括标签、评论数等
+- ✅ **动态刷新机制** - 支持单个仓库和全局数据刷新
+- ✅ **GitHub Token 配置** - 可选配置 Personal Access Token 提高 API 限额
+- ✅ **API 速率检测** - 实时监控 GitHub API 使用情况
+- ✅ **GitHub Actions 自动部署** - 推送代码后自动部署到 GitHub Pages
+- ✅ **本地数据持久化** - Issues 数据本地缓存
+
 ## 🔮 未来计划
 
 ### 尚未实现的功能
-- [ ] 真实的GitHub API集成（需要API Token）
 - [ ] 真实的CVE数据源集成（NVD API）
+- [ ] GraphQL API 支持（GitHub API v4）
 - [ ] WebSocket实时推送
 - [ ] 导出数据功能（JSON/CSV）
 - [ ] 数据可视化图表（趋势分析）
@@ -196,7 +213,7 @@ PepoWatch 是一个专业的仓库信息聚合平台，帮助开发者和安全�
 - [ ] 与JIRA/GitLab等工具集成
 
 ### 推荐的下一步开发
-1. **集成真实API** - 对接GitHub API v4 (GraphQL) 和 NVD CVE API
+1. **升级到 GraphQL** - 使用 GitHub API v4 提升性能和灵活性
 2. **增强AI功能** - 接入真实的AI模型（OpenAI、Claude等）进行智能分析
 3. **数据可视化** - 使用 Chart.js/ECharts 添加趋势图表
 4. **云端同步** - 开发后端服务，支持多设备数据同步
@@ -206,16 +223,39 @@ PepoWatch 是一个专业的仓库信息聚合平台，帮助开发者和安全�
 ## 🚀 使用说明
 
 ### 快速开始
-1. 直接打开 `index.html` 文件即可运行
-2. 首次使用会自动添加5个示例仓库（React、Vue、VSCode、Node.js、Go）
-3. 点击"添加仓库"可以订阅更多GitHub仓库
-4. 在设置页面可以配置自动刷新和通知
+1. **本地运行**：直接打开 `index.html` 文件即可运行
+2. **在线访问**：部署到 GitHub Pages 后通过 URL 访问
+3. 首次使用会自动添加5个示例仓库（React、Vue、VSCode、Node.js、Go）
+4. 点击"添加仓库"可以订阅更多GitHub仓库
+5. 在设置页面可以配置自动刷新和通知
+
+### 配置 GitHub Token（推荐）
+1. 访问 [GitHub Settings > Developer settings > Personal access tokens](https://github.com/settings/tokens)
+2. 生成新的 Classic Token
+3. 选择权限：`public_repo`（或 `repo` 如需访问私有仓库）
+4. 复制生成的 token
+5. 进入应用的"设置"页面
+6. 将 token 粘贴到"GitHub API Token"输入框
+7. 点击"测试"按钮验证 token 是否有效
+8. **注意**：配置 token 后可大幅提升 API 请求限额（从 60/小时 提升到 5000/小时）
 
 ### 添加仓库订阅
 1. 进入"GitHub订阅"标签页
 2. 点击"添加仓库"按钮
 3. 输入仓库地址（格式：owner/repo，例如：facebook/react）
 4. 点击"订阅"按钮
+5. 应用会自动从 GitHub API 获取真实数据
+
+### 查看仓库 Issues
+1. 在仓库卡片右上角点击 <i class="fas fa-exclamation-circle"></i> 图标
+2. Issues 列表会展开显示
+3. 点击"刷新Issues"按钮更新数据
+4. 点击 Issue 标题可跳转到 GitHub 查看详情
+
+### 刷新仓库数据
+- **单个仓库刷新**：点击仓库卡片的 🔄 按钮
+- **全局刷新**：点击右上角的"刷新"按钮
+- **自动刷新**：勾选"自动刷新"并设置刷新间隔
 
 ### 筛选CVE漏洞
 1. 进入"CVE漏洞"标签页
@@ -223,18 +263,25 @@ PepoWatch 是一个专业的仓库信息聚合平台，帮助开发者和安全�
 3. 点击严重等级按钮筛选不同级别的漏洞
 4. 点击CVE编号可跳转到官方详情页
 
-### 启用自动刷新
-1. 点击右上角"自动刷新"复选框
-2. 在设置页面调整刷新间隔（30秒 - 10分钟）
-3. 应用会在后台自动更新数据
+### 部署到 GitHub Pages
+1. Fork 或克隆此仓库
+2. 进入仓库设置 > Pages
+3. 选择 Source 为 "GitHub Actions"
+4. 推送代码到 main/master 分支
+5. GitHub Actions 会自动构建并部署
+6. 部署完成后通过 `https://username.github.io/repo-name/` 访问
 
 ## 📝 注意事项
 
-- 当前版本使用模拟数据，可作为演示和原型使用
-- 真实API集成需要配置API Token和处理CORS问题
-- 建议在Chrome、Edge、Firefox等现代浏览器中使用
-- LocalStorage有大小限制（通常5-10MB），大量数据可能需要其他存储方案
-- 自动刷新功能会在后台持续运行，可能消耗额外资源
+- ✅ **已集成真实 GitHub API**，可获取实时数据
+- ⚠️ 未配置 GitHub Token 时，API 限额为 **60 请求/小时**
+- ✅ 配置 Token 后，限额提升至 **5000 请求/小时**
+- 💡 CVE 数据当前使用模拟数据（未来将集成 NVD API）
+- 🌐 建议在 Chrome、Edge、Firefox 等现代浏览器中使用
+- 💾 LocalStorage 有大小限制（通常 5-10MB），大量数据可能需要其他存储方案
+- ⚡ 自动刷新功能会在后台持续运行，可能消耗额外资源
+- 🔒 GitHub Token 仅存储在本地浏览器，不会上传到服务器
+- 🚀 部署到 GitHub Pages 后，所有数据仍存储在用户本地浏览器
 
 ## 📄 许可证
 
@@ -247,3 +294,55 @@ PepoWatch v1.0.0 - 2024
 ---
 
 **提示**: 要部署此项目并使其在线可访问，请使用编辑器顶部的"Publish"（发布）标签，一键发布到互联网！
+## 🔧 技术架构
+
+### 前端技术
+- HTML5 + CSS3 + JavaScript (ES6+)
+- GitHub REST API v3
+- LocalStorage API
+- Notification API
+
+### API 集成
+- **GitHub API**: 获取仓库信息、Issues、提交记录、发布版本
+- **速率限制处理**: 自动检测并显示 API 配额
+- **错误容错**: API 失败时回退到模拟数据
+
+### 部署方式
+- **GitHub Actions**: 自动化 CI/CD 流程
+- **GitHub Pages**: 静态网站托管
+- **零配置部署**: 推送代码即可自动部署
+
+## 📊 API 使用说明
+
+### GitHub API 端点
+```
+GET /repos/:owner/:repo              # 仓库基本信息
+GET /repos/:owner/:repo/issues       # 仓库 Issues
+GET /repos/:owner/:repo/commits      # 最新提交
+GET /repos/:owner/:repo/releases     # 发布版本
+GET /rate_limit                      # API 配额检查
+```
+
+### 速率限制
+- **未认证**: 60 请求/小时
+- **已认证**: 5000 请求/小时
+- **建议**: 配置 Personal Access Token
+
+## 更新日志
+
+### v2.0.0 (2024-11)
+- ✨ 新增 GitHub API 真实数据集成
+- ✨ 新增 Issues 展示功能
+- ✨ 新增动态刷新机制
+- ✨ 新增 GitHub Token 配置
+- ✨ 新增 GitHub Actions 自动部署
+
+### v1.0.0 (2024)
+- 🎉 初始版本，模拟数据展示
+
+---
+
+**🚀 快速部署指南**: 
+1. Fork 此仓库
+2. 启用 GitHub Pages（Settings > Pages > Source: GitHub Actions）
+3. 推送代码，自动部署完成！
